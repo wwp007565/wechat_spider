@@ -26,7 +26,7 @@ func newSpider() *spider {
 	sp := &spider{}
 	sp.proxy = goproxy.NewProxyHttpServer()
 	sp.proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
-
+	
 	return sp
 }
 

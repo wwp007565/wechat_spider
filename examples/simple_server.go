@@ -9,6 +9,7 @@ func main() {
 	// open it see detail logs
 	spider.InitConfig(&spider.Config{
 		Verbose: false,
+		AutoScroll: true,
 	})
 	spider.Regist(spider.NewBaseProcessor())
 	spider.Run(port)

@@ -43,7 +43,7 @@ type (
 		Url string
 
 		_URL *url.URL
-
+		CoverImage string
 		// Three below is TODO
 		Data       string
 		Appmsgstat *MsgStat `json:"appmsgstat"`
@@ -68,6 +68,9 @@ var (
 
 	urlRegex    = regexp.MustCompile("http://mp.weixin.qq.com/s?[^#]*")
 	idRegex     = regexp.MustCompile(`"id":(\d+)`)
+	coverImageRegex = regexp.MustCompile("http://mmbiz.qpic.cn/[^,]*")
+	// jsonMsgRegex = regexp.MustCompile(`{"list":[^';]*`)
+	jsonMsgRegex = regexp.MustCompile(`{"list":[^';]*`)
 	MsgNotFound = errors.New("MsgLists not found")
 )
 
@@ -162,13 +165,23 @@ func (p *BaseProcessor) processMain() error {
 		return stacktrace.Propagate(MsgNotFound, "Failed parse main")
 	}
 	msgs = replacer.Replace(msgs)
+	// fmt.Println(msgs)
+	jsonMsgs := jsonMsgRegex.FindAllString(msgs, -1)
+	fmt.Println(jsonMsgs)
 	urls := urlRegex.FindAllString(msgs, -1)
 	if len(urls) < 1 {
 		return stacktrace.Propagate(MsgNotFound, "Failed find url in  main")
 	}
+	coverImgs := coverImageRegex.FindAllString(msgs, -1)  //所有文章配图
+	if len(urls) != len(coverImgs) {
+		fmt.Println(len(urls), len(coverImgs))
+		return stacktrace.Propagate(MsgNotFound, "Failed urls num not equal coverImgs num")
+	}
 	p.result = make([]*WechatResult, len(urls))
+	var cover string
 	for i, u := range urls {
-		p.result[i] = &WechatResult{Url: u}
+		cover = strings.Replace(coverImgs[i], "\"", "", 1)
+		p.result[i] = &WechatResult{Url: u, CoverImage: cover}
 	}
 
 	idMatcher := idRegex.FindAllStringSubmatch(msgs, -1)
@@ -201,14 +214,20 @@ func (p *BaseProcessor) processPages() (err error) {
 	if len(result) < 1 {
 		return stacktrace.Propagate(err, "Failed get page url")
 	}
+	coverImgs := coverImageRegex.FindAllString(str, -1)  //获取所有文章配图
+	if len(result) != len(coverImgs) {
+		return stacktrace.Propagate(MsgNotFound, "Failed urls num not equal coverImgs num")
+	}
 	idMatcher := idRegex.FindAllStringSubmatch(str, -1)
 	if len(idMatcher) < 1 {
 		return stacktrace.Propagate(err, "Failed get page id")
 	}
 	p.lastId = idMatcher[len(idMatcher)-1][1]
 	p.logf("Page Get => %d,lastid: %s", len(result), p.lastId)
-	for _, u := range result {
-		p.result = append(p.result, &WechatResult{Url: u})
+	var cover string
+	for i, u := range result {
+		cover = strings.Replace(coverImgs[i], "\"", "", 1)
+		p.result = append(p.result, &WechatResult{Url: u, CoverImage: cover})
 	}
 	if p.lastId != "" {
 		p.Sleep()
